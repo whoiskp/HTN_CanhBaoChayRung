@@ -84,13 +84,14 @@ unsigned int iPreTempDHT, iPreHumiDHT, iPreTempTivaC;
  */
 int iYears, iDays, iHours, iMins, iSec;
 
-// Var for TivaC
+// Var for ADC TivaC
 volatile uint32_t ui32ADC0Value[4];
 volatile uint32_t ui32TempAvg;
 
 // Var for DHT
-uint32_t testDirModeDHT;
-uint32_t testValuePinDHT;
+uint32_t testDirModeDHT; 	// this var for testing
+uint32_t testValuePinDHT;	// this var for testing
+
 unsigned int check, error;
 uint8_t buffer[5] = { 0, 0, 0, 0, 0 };
 uint8_t ii, i;
@@ -167,10 +168,10 @@ void addData() {
 
 	// neu vuot qua EEPROM thi reset lai vi tri 0x08
 	// EEPROM co 512 word 32bit
-	if (countAdsEEPROMTempHumi = 512 * 4) {
+	if (countAdsEEPROMTempHumi == 512 * 4) {
 		countAdsEEPROMTempHumi = 0x08;
 	}
-	EEPROMProgram(pui32Data_Save, countAddressEEPROM, sizeof(pui32Data_Save)); // write data to ROM
+	EEPROMProgram(pui32Data_Save, countAdsEEPROMTempHumi, sizeof(pui32Data_Save)); // write data to ROM
 	countAdsEEPROMTempHumi += sizeof(pui32Data_Save);
 
 	// Gan cac gia tri nhiet do, do am da luu thanh Pre go to getData to know why?
@@ -467,7 +468,7 @@ void midlewareHandleRes() {
 		setTime();
 		return;
 	}
-	if (iRequest == REQUEST_GET_DATA) {
+	if (iResquest == REQUEST_GET_DATA) {
 		sendAData();
 	}
 }
@@ -590,7 +591,7 @@ void Config() {
 	// init default variable
 	iMode_Module = KNQ_MODE_HOUR; 		// default la do theo thoi gian;
 	iMode_Value = KNQ_VALUE_DEFAULT;	// default value for mode;
-	countAdsEEPROMTempHumi = 0x08;// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
+	countAdsEEPROMTempHumi = 0x08;		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
 
 	iKNQ_Status = STATUS_ACCEPTED;		// set status reply is Accepted
 	iCountTime_ms = 0;					// bo dem gio bat dau tu 0ms;
