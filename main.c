@@ -85,8 +85,8 @@ unsigned int iPreTempDHT, iPreHumiDHT, iPreTempTivaC;
 int iYears, iDays, iHours, iMins, iSec;
 
 // Var for ADC TivaC
-volatile uint32_t ui32ADC0Value[4];
-volatile uint32_t ui32TempAvg;
+uint32_t ui32ADC0Value[4];
+uint32_t ui32TempAvg;
 
 // Var for DHT
 uint32_t testDirModeDHT; 	// this var for testing
