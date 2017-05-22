@@ -66,7 +66,7 @@
 uint32_t pui32Data_Clock[2];
 uint32_t pui32Read_Clock[2];
 uint32_t pui32Data_Save[3];
-uint32_t countAdsEEPROMTempHumi; // default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time
+uint32_t countAdrEEPROMTempHumi; // default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time
 
 int iKNQ_Status;
 int iCountTime_ms;
@@ -168,11 +168,11 @@ void addData() {
 
 	// neu vuot qua EEPROM thi reset lai vi tri 0x08
 	// EEPROM co 512 word 32bit
-	if (countAdsEEPROMTempHumi == 512 * 4) {
-		countAdsEEPROMTempHumi = 0x08;
+	if (countAdrEEPROMTempHumi == 512 * 4) {
+		countAdrEEPROMTempHumi = 0x08;
 	}
-	EEPROMProgram(pui32Data_Save, countAdsEEPROMTempHumi, sizeof(pui32Data_Save)); // write data to ROM
-	countAdsEEPROMTempHumi += sizeof(pui32Data_Save);
+	EEPROMProgram(pui32Data_Save, countAdrEEPROMTempHumi, sizeof(pui32Data_Save)); // write data to ROM
+	countAdrEEPROMTempHumi += sizeof(pui32Data_Save);
 
 	// Gan cac gia tri nhiet do, do am da luu thanh Pre go to getData to know why?
 	iPreTempDHT = iTempDHT;
@@ -373,7 +373,7 @@ void sendAllData() {
 	// doc data tu EEPROM 0x08 den vi tri luu hien tai
 	uint32_t i32ReadData_tmp[3];
 	uint32_t i32CountAds = 0x08;
-	for (; i32CountAds < countAdsEEPROMTempHumi; i32CountAds +=
+	for (; i32CountAds < countAdrEEPROMTempHumi; i32CountAds +=
 			sizeof(i32ReadData_tmp)) {
 		EEPROMRead(i32ReadData_tmp, i32CountAds, sizeof(i32ReadData_tmp));
 
@@ -392,7 +392,7 @@ void sendAllData() {
 	writeIntToUART(MY_UART_BLT, iKNQ_Status);
 
 	// Cau hinh lai vi tri ghi du lieu la 0x08 <=> Xoa phan trong EEPROM chua data, ghi lai cac gia tri moi
-	countAdsEEPROMTempHumi = 0x08;
+	countAdrEEPROMTempHumi = 0x08;
 }
 
 // code: 601- update time in sever - res: 60119364235959
@@ -591,7 +591,7 @@ void Config() {
 	// init default variable
 	iMode_Module = KNQ_MODE_HOUR; 		// default la do theo thoi gian;
 	iMode_Value = KNQ_VALUE_DEFAULT;	// default value for mode;
-	countAdsEEPROMTempHumi = 0x08;		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
+	countAdrEEPROMTempHumi = 0x08;		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
 
 	iKNQ_Status = STATUS_ACCEPTED;		// set status reply is Accepted
 	iCountTime_ms = 0;					// bo dem gio bat dau tu 0ms;
