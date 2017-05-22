@@ -140,8 +140,7 @@ void writeIntToUART(uint32_t uart_base, int iNum) {
 
 // ---------------------- End UART Communication ----------------------
 
-// Controller
-
+// ---------------------- Controller ----------------------------------
 // Trigger when the tempture DHT > 40oC or tempTivaC > 100oC
 void warningFire() {
 // LEd Sang Chuong keu
@@ -166,8 +165,13 @@ void addData() {
 	// word 3 chua thong tin nhiet do 0 - 50, do am DHT 0 - 95, to cua TivaC 22.5 - 337.5
 	pui32Data_Save[2] = iTempDHT * 100000 + iHumiDHT * 100 + iTempTivaC;
 
+	// neu vuot qua EEPROM thi reset lai vi tri 0x08
+	// EEPROM co 512 word 32bit
+	if (countAdsEEPROMTempHumi = 512 * 4) {
+		countAdsEEPROMTempHumi = 0x08;
+	}
 	EEPROMProgram(pui32Data_Save, countAddressEEPROM, sizeof(pui32Data_Save)); // write data to ROM
-	countAddressEEPROM += sizeof(pui32Data_Save);
+	countAdsEEPROMTempHumi += sizeof(pui32Data_Save);
 
 	// Gan cac gia tri nhiet do, do am da luu thanh Pre go to getData to know why?
 	iPreTempDHT = iTempDHT;
@@ -193,6 +197,18 @@ void getTime() {
 	iHours = pui32Read_Clock[1] / 10000;
 	iSec = pui32Read_Clock[1] % 100;
 	iHours = (pui32Read_Clock[1] - (10000 * iHours - iSec)) / 100;
+}
+
+// write time config to EEPROM
+void configTime(uint32_t i32YearDay, uint32_t i32HourMinSec) {
+
+	pui32Data_Clock[0] = i32YearDay; // 19364 = year: 2019 day: 364
+	pui32Data_Clock[1] = i32HourMinSec; // 235959 = hour: 23 min 59 sec 59
+	writeStringToUART(MY_UART_COM, "\n Set time: ");
+	EEPROMProgram(pui32Data_Clock, 0x0, sizeof(pui32Data_Clock)); // write data to ROM
+
+	// get time data config to change Global variable;
+	getTime();
 }
 
 void getTempFromADC() {
@@ -353,20 +369,17 @@ void getData() {
 
 // code: 600 - send all data to Client
 void sendAllData() {
+	// doc data tu EEPROM 0x08 den vi tri luu hien tai
 	uint32_t i32ReadData_tmp[3];
-	uint32_t i32CountAds = 0x8;
-	EEPROMRead(i32ReadData_tmp, i32CountAds, sizeof(i32ReadData_tmp));
-	while (i32ReadData_tmp[0] != 0xFFFFFFFF) {
-		// Gui qua Com de test
-		writeIntToUART(MY_UART_COM, i32ReadData_tmp[0]);
-		if (i32ReadData_tmp[1] == 0xFFFFFFFF)
-			return;
-		writeIntToUART(MY_UART_COM, i32ReadData_tmp[1]);
-		if (i32ReadData_tmp[2] == 0xFFFFFFFF)
-			return;
-		writeIntToUART(MY_UART_COM, i32ReadData_tmp[2]);
-		i32CountAds += sizeof(i32ReadData_tmp);
+	uint32_t i32CountAds = 0x08;
+	for (; i32CountAds < countAdsEEPROMTempHumi; i32CountAds +=
+			sizeof(i32ReadData_tmp)) {
 		EEPROMRead(i32ReadData_tmp, i32CountAds, sizeof(i32ReadData_tmp));
+
+		// Gui qua com de test
+		writeIntToUART(MY_UART_COM, i32ReadData_tmp[0]);
+		writeIntToUART(MY_UART_COM, i32ReadData_tmp[1]);
+		writeIntToUART(MY_UART_COM, i32ReadData_tmp[2]);
 	}
 
 	// Send request reply
@@ -378,9 +391,7 @@ void sendAllData() {
 	writeIntToUART(MY_UART_BLT, iKNQ_Status);
 
 	// Cau hinh lai vi tri ghi du lieu la 0x08 <=> Xoa phan trong EEPROM chua data, ghi lai cac gia tri moi
-	countAdsEEPROMTempHumi = 0x8; // Tranh tinh trang dang gui du lieu 1 gia tri duoc doc vao tu ham ngat timmer
-	// Vi gui gia tri theo thoi gian
-	EEPROMProgram(pui32Data_Save, countAddressEEPROM, sizeof(pui32Data_Save)); // write data to ROM
+	countAdsEEPROMTempHumi = 0x08;
 }
 
 // code: 601- update time in sever - res: 60119364235959
@@ -405,7 +416,7 @@ void setTime() {
 	iKNQ_Status = STATUS_SUCCESS;
 	writeIntToUART(MY_UART_BLT, iKNQ_Status);
 
-	// get data after change to Global variable;
+	// get time data after to change Global variable;
 	getTime();
 }
 
@@ -434,8 +445,8 @@ void sendAData() {
 	writeStringToUART(MY_UART_BLT, "KNQ");
 
 	// Gui Status code to Client;
-	// status nay phu thuoc vao viec doc temp tu DHT11
-	// Co the la NOT_FOUND or CONFLICT
+	// status nay phu thuoc vao viec doc data tu DHT11
+	// Co the la NOT_FOUND DHT or CONFLICT voi checksum
 	writeIntToUART(MY_UART_BLT, iKNQ_Status);
 }
 
@@ -473,7 +484,7 @@ void UARTIntHandler(void) {
 	midlewareHandleRes();
 }
 
-// Handler interrupt Timer Interrupt: every 100ms
+// Handler interrupt Timer - Interrupt every 100ms
 void Timer0IntHandler(void) {
 	// Clear the timer interrupt
 	TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
@@ -581,7 +592,7 @@ void Config() {
 	iMode_Value = KNQ_VALUE_DEFAULT;	// default value for mode;
 	countAdsEEPROMTempHumi = 0x08;// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
 
-	iKNQ_Status = STATUS_ACCEPTED;
+	iKNQ_Status = STATUS_ACCEPTED;		// set status reply is Accepted
 	iCountTime_ms = 0;					// bo dem gio bat dau tu 0ms;
 
 	iTempDHT = iHumiDHT = iTempTivaC = iPreTempDHT = iPreHumiDHT =
@@ -596,14 +607,13 @@ void Config() {
 	 *
 	 * Time default: 01/01/2017 00:00:00
 	 */
-	iYears = 17;
-	iDays = 1;
-	iHours = 0;
-	iMins = 0;
-	iSec = 0;
-
-	// Lay cac gia tri Thoi gian tu EEPROM
-
+//	iYears = 17;
+//	iDays = 1;
+//	iHours = 0;
+//	iMins = 0;
+//	iSec = 0;
+	// set time default and write it to 0x0 - 0x07 EEPROM
+	configTime(17001, 0);
 }
 // ----------- End Config --------------//
 
