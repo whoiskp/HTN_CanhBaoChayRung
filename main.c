@@ -47,6 +47,7 @@
 #define KNQ_MODE_HOUR 		1			// Che do ghi data theo thoi gian tinh theo hour
 #define KNQ_MODE_TEMP 		2			// Che do ghi data theo muc chenh lech nhiet do
 #define KNQ_VALUE_DEFAULT	5			// Gia tri default chenh lech (5 hour or 5oC) tuy vao Mode
+#define KNQ_EEPROM_ADR_VLUE	0x08		// Adress start in EEPROM for save data
 
 #define REQUEST_GETALL_DATA 600
 #define REQUEST_SET_TIME	601
@@ -63,14 +64,15 @@
 #define data GPIOPinRead(DHT_PORT,DHT_PIN)
 
 // Global variable
-uint32_t pui32Data_Clock[2];
-uint32_t pui32Read_Clock[2];
-uint32_t pui32Data_Save[3];
-uint32_t countAdrEEPROMTempHumi; // default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time
 
-int iKNQ_Status;
-int iCountTime_ms;
-int iMode_Module, iMode_Value;
+uint32_t pui32Data_Clock[2];			// Chua 2 word dau tien mang thong tin clock trong EEPROM
+uint32_t pui32Read_Clock[2];			// Chua thong thong tin Clock duoc doc ra tu EEPROM
+uint32_t pui32Data_Save[3];				// Chua du lieu ghi vao EEPROM
+uint32_t countAdrEEPROMTempHumi; 		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time
+
+int iKNQ_Status;						// status cho giao thuc ket noi "KNQ"
+int iCountTime_ms;						// Bien dem thoi gian MCU theo ms
+int iMode_Module, iMode_Value;			// Cac che do cai dat cho module nay, va gia tri cua no.
 
 unsigned int iTempDHT, iHumiDHT, iTempTivaC;
 unsigned int iPreTempDHT, iPreHumiDHT, iPreTempTivaC;
@@ -163,13 +165,13 @@ void addData() {
 	// word 2 chua thong tin gio phut giay
 	pui32Data_Save[1] = iHours * 10000 + iMins * 100 + iSec;
 
-	// word 3 chua thong tin nhiet do 0 - 50, do am DHT 0 - 95, to cua TivaC 22.5 - 337.5
+	// word 3 chua thong tin nhiet do DHT 0 - 50, do am DHT 0 - 95, To cua TivaC 22.5 - 337.5
 	pui32Data_Save[2] = iTempDHT * 100000 + iHumiDHT * 100 + iTempTivaC;
 
 	// neu vuot qua EEPROM thi reset lai vi tri 0x08
 	// EEPROM co 512 word 32bit
 	if (countAdrEEPROMTempHumi == 512 * 4) {
-		countAdrEEPROMTempHumi = 0x08;
+		countAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;
 	}
 	EEPROMProgram(pui32Data_Save, countAdrEEPROMTempHumi, sizeof(pui32Data_Save)); // write data to ROM
 	countAdrEEPROMTempHumi += sizeof(pui32Data_Save);
@@ -177,7 +179,7 @@ void addData() {
 	// Gan cac gia tri nhiet do, do am da luu thanh Pre go to getData to know why?
 	iPreTempDHT = iTempDHT;
 	iPreHumiDHT = iHumiDHT;
-	iPreTempTivaC = iPreTempTivaC;
+	iPreTempTivaC = iTempTivaC;
 }
 
 // Lay thoi gian trong EEPROM ra cac bien chay trong chuong trinh
@@ -333,7 +335,7 @@ void getTempHumiFromDHT11(void) {
 }
 
 /**
- * Lay thong tin cho DHT11 va to TivaC
+ * Lay thong tin cho DHT11 va To TivaC
  */
 void getData() {
 
@@ -372,7 +374,7 @@ void getData() {
 void sendAllData() {
 	// doc data tu EEPROM 0x08 den vi tri luu hien tai
 	uint32_t i32ReadData_tmp[3];
-	uint32_t i32CountAds = 0x08;
+	uint32_t i32CountAds = KNQ_EEPROM_ADR_VLUE;
 	for (; i32CountAds < countAdrEEPROMTempHumi; i32CountAds +=
 			sizeof(i32ReadData_tmp)) {
 		EEPROMRead(i32ReadData_tmp, i32CountAds, sizeof(i32ReadData_tmp));
@@ -392,7 +394,7 @@ void sendAllData() {
 	writeIntToUART(MY_UART_BLT, iKNQ_Status);
 
 	// Cau hinh lai vi tri ghi du lieu la 0x08 <=> Xoa phan trong EEPROM chua data, ghi lai cac gia tri moi
-	countAdrEEPROMTempHumi = 0x08;
+	countAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;
 }
 
 // code: 601- update time in sever - res: 60119364235959
@@ -591,7 +593,7 @@ void Config() {
 	// init default variable
 	iMode_Module = KNQ_MODE_HOUR; 		// default la do theo thoi gian;
 	iMode_Value = KNQ_VALUE_DEFAULT;	// default value for mode;
-	countAdrEEPROMTempHumi = 0x08;		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
+	countAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
 
 	iKNQ_Status = STATUS_ACCEPTED;		// set status reply is Accepted
 	iCountTime_ms = 0;					// bo dem gio bat dau tu 0ms;
