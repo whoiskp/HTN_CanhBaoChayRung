@@ -165,7 +165,7 @@ void writeDataMarkToUART(uint32_t uart_base, int iNum, char* sMark){
 	while(iNum % 10 < 10){
 		iDigit = iNum % 10;
 		sMark[iIndexStr] += iDigit; // example: "0" + 9 = "9"; => "000009"
-		iIndexStr--
+		iIndexStr--;
 		iNum /= 10;					// get next Digit
 	}
 
