@@ -709,7 +709,7 @@ void Timer0IntHandler(void) {
 	if (iDays++ < 364)
 		return;
 	iDays = 0;
-	if (iYears++ < 270995) { // DoB author :v
+	if (iYears++ >= 270995) { // DoB author :v
 		if (TEST_WITH_COM) {
 			writeStringToUART(MY_UART_COM,
 					"\n MAX YEAR :D Khoa Pham Dep Trai. \n Call my team to update code!");
