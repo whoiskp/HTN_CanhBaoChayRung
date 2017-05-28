@@ -39,6 +39,8 @@
 #define MY_UART_COM 		UART0_BASE 	// use for test with computer
 #define MY_UART_BLT 		UART1_BASE 	// use for bluetooth
 
+#define TEST_WITH_COM		1
+
 // LED and LOA PE1
 #define WARN_PERIPH			SYSCTL_PERIPH_GPIOE
 #define WARN_PORT			GPIO_PORTE_BASE
@@ -65,14 +67,14 @@
 
 // Global variable
 
-uint32_t pui32Data_Clock[2];			// Chua 2 word dau tien mang thong tin clock trong EEPROM
-uint32_t pui32Read_Clock[2];			// Chua thong thong tin Clock duoc doc ra tu EEPROM
+uint32_t pui32Data_Clock[2]; // Chua 2 word dau tien mang thong tin clock trong EEPROM
+uint32_t pui32Read_Clock[2]; // Chua thong thong tin Clock duoc doc ra tu EEPROM
 uint32_t pui32Data_Save[3];				// Chua du lieu ghi vao EEPROM
-uint32_t countAdrEEPROMTempHumi; 		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time
+uint32_t iCountAdrEEPROMTempHumi; // default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time
 
 int iKNQ_Status;						// status cho giao thuc ket noi "KNQ"
 int iCountTime_ms;						// Bien dem thoi gian MCU theo ms
-int iMode_Module, iMode_Value;			// Cac che do cai dat cho module nay, va gia tri cua no.
+int iMode_Module, iMode_Value;// Cac che do cai dat cho module nay, va gia tri cua no.
 
 unsigned int iTempDHT, iHumiDHT, iTempTivaC;
 unsigned int iPreTempDHT, iPreHumiDHT, iPreTempTivaC;
@@ -146,15 +148,25 @@ void writeIntToUART(uint32_t uart_base, int iNum) {
 // ---------------------- Controller ----------------------------------
 // Trigger when the tempture DHT > 40oC or tempTivaC > 100oC
 void warningFire() {
-// LEd Sang Chuong keu
+	// LEd Sang Chuong keu
 	GPIOPinWrite(WARN_PORT, WARN_PIN, WARN_PIN);
-// Gui ve Bluetooth to, Do Am
-	writeIntToUART(MY_UART_COM, iTempDHT);
-	writeIntToUART(MY_UART_COM, iHumiDHT);
-	writeIntToUART(MY_UART_COM, iTempTivaC);
 
-	// 3 last char in respone => transport complete
-	writeStringToUART(MY_UART_BLT, "KNQ");
+	// Gui ve Bluetooth to, Do Am
+	if (TEST_WITH_COM) {
+		writeIntToUART(MY_UART_COM, iTempDHT);
+		writeIntToUART(MY_UART_COM, iHumiDHT);
+		writeIntToUART(MY_UART_COM, iTempTivaC);
+
+		// 3 last char in respone => transport complete
+		writeStringToUART(MY_UART_COM, "KNQ");
+	} else {
+		writeIntToUART(MY_UART_BLT, iTempDHT);
+		writeIntToUART(MY_UART_BLT, iHumiDHT);
+		writeIntToUART(MY_UART_BLT, iTempTivaC);
+
+		// 3 last char in respone => transport complete
+		writeStringToUART(MY_UART_BLT, "KNQ");
+	}
 }
 
 // Add data to EEPROM
@@ -166,15 +178,18 @@ void addData() {
 	pui32Data_Save[1] = iHours * 10000 + iMins * 100 + iSec;
 
 	// word 3 chua thong tin nhiet do DHT 0 - 50, do am DHT 0 - 95, To cua TivaC 22.5 - 337.5
-	pui32Data_Save[2] = iTempDHT * 100000 + iHumiDHT * 100 + iTempTivaC;
+	// 3539022
+	pui32Data_Save[2] = iTempDHT * 100000 + iHumiDHT * 1000 + iTempTivaC;
 
 	// neu vuot qua EEPROM thi reset lai vi tri 0x08
 	// EEPROM co 512 word 32bit
-	if (countAdrEEPROMTempHumi == 512 * 4) {
-		countAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;
+	if (iCountAdrEEPROMTempHumi == 512 * 4) {
+		iCountAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;
 	}
-	EEPROMProgram(pui32Data_Save, countAdrEEPROMTempHumi, sizeof(pui32Data_Save)); // write data to ROM
-	countAdrEEPROMTempHumi += sizeof(pui32Data_Save);
+	EEPROMProgram(pui32Data_Save, iCountAdrEEPROMTempHumi,
+			sizeof(pui32Data_Save)); // write data to ROM
+
+	iCountAdrEEPROMTempHumi += sizeof(pui32Data_Save);
 
 	// Gan cac gia tri nhiet do, do am da luu thanh Pre go to getData to know why?
 	iPreTempDHT = iTempDHT;
@@ -186,11 +201,20 @@ void addData() {
 void getTime() {
 	EEPROMRead(pui32Read_Clock, 0x0, sizeof(pui32Read_Clock));
 
-	writeStringToUART(MY_UART_COM, "\n Test time: ");
-	writeIntToUART(MY_UART_COM, pui32Read_Clock[0]);
+	if (TEST_WITH_COM) {
+		writeStringToUART(MY_UART_COM, "\n Test time: ");
+		writeIntToUART(MY_UART_COM, pui32Read_Clock[0]);
 
-	writeStringToUART(MY_UART_COM, "\n Clock time: ");
-	writeIntToUART(MY_UART_COM, pui32Read_Clock[1]);
+		writeStringToUART(MY_UART_COM, "\n Clock time: ");
+		writeIntToUART(MY_UART_COM, pui32Read_Clock[1]);
+
+	} else {
+		writeStringToUART(MY_UART_BLT, "\n Test time: ");
+		writeIntToUART(MY_UART_BLT, pui32Read_Clock[0]);
+
+		writeStringToUART(MY_UART_BLT, "\n Clock time: ");
+		writeIntToUART(MY_UART_BLT, pui32Read_Clock[1]);
+	}
 
 	// 19364
 	iYears = pui32Read_Clock[0] / 1000;
@@ -207,7 +231,13 @@ void configTime(uint32_t i32YearDay, uint32_t i32HourMinSec) {
 
 	pui32Data_Clock[0] = i32YearDay; // 19364 = year: 2019 day: 364
 	pui32Data_Clock[1] = i32HourMinSec; // 235959 = hour: 23 min 59 sec 59
-	writeStringToUART(MY_UART_COM, "\n Set time: ");
+
+	if (TEST_WITH_COM) {
+		writeStringToUART(MY_UART_COM, "\n Set time: ");
+	} else {
+		writeStringToUART(MY_UART_BLT, "\n Set time: ");
+	}
+
 	EEPROMProgram(pui32Data_Clock, 0x0, sizeof(pui32Data_Clock)); // write data to ROM
 
 	// get time data config to change Global variable;
@@ -232,7 +262,11 @@ void getTempFromADC() {
 
 void getTempHumiFromDHT11(void) {
 
-	writeStringToUART(MY_UART_BLT, "\n Start DHT11...");
+	if (TEST_WITH_COM) {
+		writeStringToUART(MY_UART_COM, "\n Start DHT11...");
+	} else {
+		writeStringToUART(MY_UART_BLT, "\n Start DHT11...");
+	}
 
 	SysCtlDelay(SysCtlClockGet() / 3); // Delay 1s
 
@@ -362,6 +396,9 @@ void getData() {
 	if ((iMode_Module == KNQ_MODE_HOUR) && (iHours % iMode_Value == 0)) {
 		addData();
 	}
+
+	// test for com
+	addData();
 }
 
 // Midleware xử lý resquest from client - Android (resquest in buff[100]);
@@ -372,29 +409,46 @@ void getData() {
 
 // code: 600 - send all data to Client
 void sendAllData() {
+
 	// doc data tu EEPROM 0x08 den vi tri luu hien tai
 	uint32_t i32ReadData_tmp[3];
+
 	uint32_t i32CountAds = KNQ_EEPROM_ADR_VLUE;
-	for (; i32CountAds < countAdrEEPROMTempHumi; i32CountAds +=
+	for (; i32CountAds <= iCountAdrEEPROMTempHumi; i32CountAds +=
 			sizeof(i32ReadData_tmp)) {
 		EEPROMRead(i32ReadData_tmp, i32CountAds, sizeof(i32ReadData_tmp));
 
-		// Gui qua com de test
-		writeIntToUART(MY_UART_COM, i32ReadData_tmp[0]);
-		writeIntToUART(MY_UART_COM, i32ReadData_tmp[1]);
-		writeIntToUART(MY_UART_COM, i32ReadData_tmp[2]);
+		if (TEST_WITH_COM) {
+
+			// Gui qua com de test
+			writeIntToUART(MY_UART_COM, i32ReadData_tmp[0]);
+			writeIntToUART(MY_UART_COM, i32ReadData_tmp[1]);
+			writeIntToUART(MY_UART_COM, i32ReadData_tmp[2]);
+
+		}
 	}
 
-	// Send request reply
-	// 3 last char in respone => transport complete
-	writeStringToUART(MY_UART_BLT, "KNQ");
-
-	// Gui Status code to Client;
-	iKNQ_Status = STATUS_SUCCESS;
-	writeIntToUART(MY_UART_BLT, iKNQ_Status);
-
 	// Cau hinh lai vi tri ghi du lieu la 0x08 <=> Xoa phan trong EEPROM chua data, ghi lai cac gia tri moi
-	countAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;
+//	iCountAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;
+	iKNQ_Status = STATUS_SUCCESS;
+
+	if (TEST_WITH_COM) {
+		// Send request reply
+		// 3 last char in respone => transport complete
+		writeStringToUART(MY_UART_COM, "KNQ");
+
+		// Gui Status code to Client;
+		writeIntToUART(MY_UART_COM, iKNQ_Status);
+	} else {
+		// Send request reply
+		// 3 last char in respone => transport complete
+		writeStringToUART(MY_UART_BLT, "KNQ");
+
+		// Gui Status code to Client;
+		writeIntToUART(MY_UART_BLT, iKNQ_Status);
+
+	}
+
 }
 
 // code: 601- update time in sever - res: 60119364235959
@@ -409,15 +463,26 @@ void setTime() {
 			+ resBuff[13];
 
 	writeStringToUART(MY_UART_COM, "\n Set time: ");
+
 	EEPROMProgram(pui32Data_Clock, 0x0, sizeof(pui32Data_Clock)); // write data to ROM
 
-	// Send request reply
-	// 3 last char in respone => transport complete
-	writeStringToUART(MY_UART_BLT, "KNQ");
-
-	// Gui Status code to Client;
 	iKNQ_Status = STATUS_SUCCESS;
-	writeIntToUART(MY_UART_BLT, iKNQ_Status);
+	if (TEST_WITH_COM) {
+		// Send request reply
+		// 3 last char in respone => transport complete
+		writeStringToUART(MY_UART_COM, "KNQ");
+
+		// Gui Status code to Client;
+		writeIntToUART(MY_UART_COM, iKNQ_Status);
+	} else {
+		// Send request reply
+		// 3 last char in respone => transport complete
+		writeStringToUART(MY_UART_BLT, "KNQ");
+
+		// Gui Status code to Client;
+		iKNQ_Status = STATUS_SUCCESS;
+		writeIntToUART(MY_UART_BLT, iKNQ_Status);
+	}
 
 	// get time data after to change Global variable;
 	getTime();
@@ -439,18 +504,38 @@ void setMode() {
 
 // code: 603 - Send only a data to Client
 void sendAData() {
-	writeIntToUART(MY_UART_BLT, iPreTempDHT);
-	writeIntToUART(MY_UART_BLT, iPreHumiDHT);
-	writeIntToUART(MY_UART_BLT, iPreTempTivaC);
+	if (TEST_WITH_COM) {
+		writeStringToUART(MY_UART_COM, "\n Tmp DHT: ");
+		writeIntToUART(MY_UART_COM, iPreTempDHT);
+		writeStringToUART(MY_UART_COM, "\n Humi DHT: ");
+		writeIntToUART(MY_UART_COM, iPreHumiDHT);
+		writeStringToUART(MY_UART_COM, "\n Tmp TivaC: ");
+		writeIntToUART(MY_UART_COM, iPreTempTivaC);
 
-	// Send request reply
-	// 3 last char in respone => transport complete
-	writeStringToUART(MY_UART_BLT, "KNQ");
+//		// Send request reply
+//		// 3 last char in respone => transport complete
+//		writeStringToUART(MY_UART_COM, "KNQ");
+//
+//		// Gui Status code to Client;
+//		// status nay phu thuoc vao viec doc data tu DHT11
+//		// Co the la NOT_FOUND DHT or CONFLICT voi checksum
+//		writeIntToUART(MY_UART_COM, iKNQ_Status);
 
-	// Gui Status code to Client;
-	// status nay phu thuoc vao viec doc data tu DHT11
-	// Co the la NOT_FOUND DHT or CONFLICT voi checksum
-	writeIntToUART(MY_UART_BLT, iKNQ_Status);
+	} else {
+		writeIntToUART(MY_UART_BLT, iPreTempDHT);
+		writeIntToUART(MY_UART_BLT, iPreHumiDHT);
+		writeIntToUART(MY_UART_BLT, iPreTempTivaC);
+
+		// Send request reply
+		// 3 last char in respone => transport complete
+		writeStringToUART(MY_UART_BLT, "KNQ");
+
+		// Gui Status code to Client;
+		// status nay phu thuoc vao viec doc data tu DHT11
+		// Co the la NOT_FOUND DHT or CONFLICT voi checksum
+		writeIntToUART(MY_UART_BLT, iKNQ_Status);
+	}
+
 }
 
 void midlewareHandleRes() {
@@ -491,8 +576,11 @@ void UARTIntHandler(void) {
 void Timer0IntHandler(void) {
 	// Clear the timer interrupt
 	TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-	writeStringToUART(MY_UART_COM, "\n Time: ");
-	writeIntToUART(MY_UART_COM, iCountTime_ms);
+
+//	if (TEST_WITH_COM){
+//		writeStringToUART(MY_UART_COM, "\n Time: ");
+//		writeIntToUART(MY_UART_COM, iCountTime_ms);
+//	}
 
 	// tinh gia tri dong ho
 	if (iCountTime_ms++ < 10)
@@ -511,8 +599,10 @@ void Timer0IntHandler(void) {
 		return;
 	iDays = 0;
 	if (iYears++ < 270995) { // DoB author :v
-		writeStringToUART(MY_UART_COM,
-				"\n MAX YEAR :D Khoa Pham Dep Trai. \n Call my team to update code!");
+		if (TEST_WITH_COM){
+			writeStringToUART(MY_UART_COM,
+					"\n MAX YEAR :D Khoa Pham Dep Trai. \n Call my team to update code!");
+		}
 	}
 }
 
@@ -532,7 +622,7 @@ void Config() {
 	GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE,
 	GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
 
-	// config UART for computer
+	// config UART TEST for computer
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
 	GPIOPinConfigure(GPIO_PA0_U0RX);
@@ -552,6 +642,7 @@ void Config() {
 
 	UARTConfigSetExpClk(UART1_BASE, SysCtlClockGet(), 9600,
 			(UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+
 	IntMasterEnable(); //enable processor interrupts
 	IntEnable(INT_UART1); //enable the UART interrupt
 	UARTIntEnable(UART1_BASE, UART_INT_RX | UART_INT_RT); //only enable RX and TX interrupts
@@ -593,7 +684,7 @@ void Config() {
 	// init default variable
 	iMode_Module = KNQ_MODE_HOUR; 		// default la do theo thoi gian;
 	iMode_Value = KNQ_VALUE_DEFAULT;	// default value for mode;
-	countAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;		// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
+	iCountAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;// default = 0x8, set = multil 4 ; 0x0 - 0x07 : set time;
 
 	iKNQ_Status = STATUS_ACCEPTED;		// set status reply is Accepted
 	iCountTime_ms = 0;					// bo dem gio bat dau tu 0ms;
@@ -624,5 +715,9 @@ int main(void) {
 	Config();
 	while (1) {
 		getData();
+		writeStringToUART(MY_UART_COM, "\n Send A Data: ");
+		sendAData();
+		writeStringToUART(MY_UART_COM, "\n Send All Data: ");
+		sendAllData();
 	}
 }
