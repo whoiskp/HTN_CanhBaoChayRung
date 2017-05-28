@@ -136,7 +136,7 @@ void writeStringToUART(uint32_t uart_base, char* str) {
 void writeIntToUART(uint32_t uart_base, int iNum) {
 	char cBuffer[10];
 	int i = 0;
-	if(iNum == 0) UARTCharPut(uart_base, '0');
+	if(iNum == 0) writeStringToUART(uart_base, "00");
 	while (iNum - 1 >= 0) {
 		cBuffer[i++] = iNum % 10 + 0x30;
 		iNum /= 10;
