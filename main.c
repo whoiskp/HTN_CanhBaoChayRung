@@ -39,7 +39,7 @@
 #define MY_UART_COM 		UART0_BASE 	// use for test with computer
 #define MY_UART_BLT 		UART1_BASE 	// use for bluetooth
 
-#define TEST_WITH_COM		1
+#define TEST_WITH_COM		0
 
 // LED and LOA PE1
 #define WARN_PERIPH			SYSCTL_PERIPH_GPIOE
@@ -136,7 +136,8 @@ void writeStringToUART(uint32_t uart_base, char* str) {
 void writeIntToUART(uint32_t uart_base, int iNum) {
 	char cBuffer[10];
 	int i = 0;
-	if(iNum == 0) writeStringToUART(uart_base, "00");
+	if (iNum == 0)
+		writeStringToUART(uart_base, "00");
 	while (iNum - 1 >= 0) {
 		cBuffer[i++] = iNum % 10 + 0x30;
 		iNum /= 10;
@@ -150,10 +151,10 @@ void writeIntToUART(uint32_t uart_base, int iNum) {
 // it's as needed.
 // This function write a number with mark, Default mark hour:min:sec is "000000"
 
-void writeDataMarkToUART(uint32_t uart_base, int iNum, char* sMark){
-
+void writeTimeToUART(uint32_t uart_base, int iNum) {
+	char sMark[] = "000000";
 	int iDigit = 0;
-	int iIndexStr = strlen(sMark) - 1;
+	int iIndexStr = 5;
 
 	/**
 	 * check iIndexStr >= 0
@@ -162,7 +163,7 @@ void writeDataMarkToUART(uint32_t uart_base, int iNum, char* sMark){
 	 * 			to exit if out of sMark length :D
 	 */
 
-	while(iNum % 10 < 10){
+	while (iNum > 0) {
 		iDigit = iNum % 10;
 		sMark[iIndexStr] += iDigit; // example: "0" + 9 = "9"; => "000009"
 		iIndexStr--;
@@ -449,17 +450,17 @@ void getData() {
 		GPIOPinWrite(WARN_PORT, WARN_PIN, 0);
 	}
 
-	// Che do ghi data theo chenh lech temp
-	if (iMode_Module == KNQ_MODE_TEMP) {
-		if ((abs(iTempDHT - iPreTempDHT) == iMode_Value)
-				|| (abs(iTempTivaC - iPreTempTivaC) == iMode_Value)) {
-			addData();
-		}
-	}
-	// Che do ghi data theo gio
-	if ((iMode_Module == KNQ_MODE_HOUR) && (iHours % iMode_Value == 0)) {
-		addData();
-	}
+//	// Che do ghi data theo chenh lech temp
+//	if (iMode_Module == KNQ_MODE_TEMP) {
+//		if ((abs(iTempDHT - iPreTempDHT) == iMode_Value)
+//				|| (abs(iTempTivaC - iPreTempTivaC) == iMode_Value)) {
+//			addData();
+//		}
+//	}
+//	// Che do ghi data theo gio
+//	if ((iMode_Module == KNQ_MODE_HOUR) && (iHours % iMode_Value == 0)) {
+//		addData();
+//	}
 
 	// test for com
 	addData();
@@ -470,7 +471,7 @@ void getData() {
 // 		SetMode save data by temp: 		60225 			-> mode 2 value = 5
 //		SetTime 22/05/2017 17:36:40 : 	60117141173640	-> year: 17, date: 141, hour: 17, mins: 36, sec: 40
 //		Get a Data Current:				603
-
+i
 // code: 600 - send all data to Client
 void sendAllData() {
 
@@ -479,44 +480,49 @@ void sendAllData() {
 
 	uint32_t i32CountAds = KNQ_EEPROM_ADR_VLUE;
 
-	for (; i32CountAds <= iCountAdrEEPROMTempHumi; i32CountAds +=
+//	writeStringToUART(MY_UART_BLT, "\n iCountAddress: ");
+//	writeIntToUART(MY_UART_BLT, i32CountAds);
+
+	for (; i32CountAds < iCountAdrEEPROMTempHumi; i32CountAds +=
 			sizeof(i32ReadData_tmp)) {
+
 		EEPROMRead(i32ReadData_tmp, i32CountAds, sizeof(i32ReadData_tmp));
 
-		if (TEST_WITH_COM) {
+//		writeStringToUART(MY_UART_COM, "\n iCountAddress: ");
+//		writeIntToUART(MY_UART_COM, i32CountAds);
+//
+//		writeStringToUART(MY_UART_COM, "\n Data send: ");
+//		if (TEST_WITH_COM) {
 
-			// Gui qua com de test
-			writeIntToUART(MY_UART_COM, i32ReadData_tmp[0]);
+		// Gui qua com de test
+		writeIntToUART(MY_UART_BLT, i32ReadData_tmp[0]);
 
-			// send time hour:min:sec = 000000
-			writeDataMarkToUART(MY_UART_COM, i32ReadData_tmp[1], sTimeMark);
+		// send time hour:min:sec = 000000
+		writeTimeToUART(MY_UART_BLT, i32ReadData_tmp[1]);
 
-			writeIntToUART(MY_UART_COM, i32ReadData_tmp[2]);
+		writeIntToUART(MY_UART_BLT, i32ReadData_tmp[2]);
 
-		}
+//		}
 	}
 
 	// Cau hinh lai vi tri ghi du lieu la 0x08 <=> Xoa phan trong EEPROM chua data, ghi lai cac gia tri moi
 	iCountAdrEEPROMTempHumi = KNQ_EEPROM_ADR_VLUE;
-	iKNQ_Status = STATUS_SUCCESS;
 
-	if (TEST_WITH_COM) {
-		// Send request reply
-		// 3 last char in respone => transport complete
-		writeStringToUART(MY_UART_COM, "KNQ");
-
-		// Gui Status code to Client;
-		writeIntToUART(MY_UART_COM, iKNQ_Status);
-	} else {
-		// Send request reply
-		// 3 last char in respone => transport complete
-		writeStringToUART(MY_UART_BLT, "KNQ");
-
-		// Gui Status code to Client;
-		writeIntToUART(MY_UART_BLT, iKNQ_Status);
-
-	}
-
+//	if (TEST_WITH_COM) {
+//		// Send request reply
+//		// 3 last char in respone => transport complete
+//		writeStringToUART(MY_UART_COM, "KNQ");
+//
+//		// Gui Status code to Client;
+//		writeIntToUART(MY_UART_COM, STATUS_SUCCESS);
+//	} else {
+//		// Send request reply
+//		// 3 last char in respone => transport complete
+//		writeStringToUART(MY_UART_BLT, "KNQ");
+//
+//		// Gui Status code to Client;
+//		writeIntToUART(MY_UART_BLT, STATUS_SUCCESS);
+//	}
 }
 
 // code: 601- update time in sever - res: 60119364235959
@@ -590,10 +596,6 @@ void sendAData() {
 //		writeIntToUART(MY_UART_COM, iKNQ_Status);
 
 	} else {
-		writeIntToUART(MY_UART_BLT, iPreTempDHT);
-		writeIntToUART(MY_UART_BLT, iPreHumiDHT);
-		writeIntToUART(MY_UART_BLT, iPreTempTivaC);
-
 		// Send request reply
 		// 3 last char in respone => transport complete
 		writeStringToUART(MY_UART_BLT, "KNQ");
@@ -645,55 +647,6 @@ void Timer0IntHandler(void) {
 	// Clear the timer interrupt
 	TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 
-//	if (TEST_WITH_COM){
-//		writeStringToUART(MY_UART_COM, "\n Time: ");
-//		writeIntToUART(MY_UART_COM, iCountTime_ms);
-//	}
-
-//	// tinh gia tri dong ho
-//	iCountTime_ms++;
-//
-//	if (iCountTime_ms < 10) {
-//		return;
-//	}
-//
-//	// == 10
-//	iCountTime_ms = 0;
-//	iSec++;
-//
-//	if (iSec <= 59) {
-//		return;
-//	}
-//
-//	iSec = 0;
-//	iMins++;
-//
-//	if (iMins <= 59) {
-//		return;
-//	}
-//
-//	iMins = 0;
-//	iHours++;
-//	if (iHours <= 23) {
-//		return;
-//	}
-//
-//	iHours = 0;
-//	iDays++;
-//	if (iDays <= 365) {
-//		return;
-//	}
-//
-//	iDays = 0;
-//	iYears++;
-//
-//	if (iYears == 270995) { // DoB author :v
-//		if (TEST_WITH_COM) {
-//			writeStringToUART(MY_UART_COM,
-//					"\n MAX YEAR :D Khoa Pham Dep Trai. \n Call my team to update code!");
-//		}
-//	}
-
 	if (iCountTime_ms++ < 10)
 		return;
 	iCountTime_ms = 0;
@@ -709,7 +662,7 @@ void Timer0IntHandler(void) {
 	if (iDays++ < 364)
 		return;
 	iDays = 0;
-	if (iYears++ < 270995) { // DoB author :v
+	if (iYears++ >= 270995) { // DoB author :v
 		if (TEST_WITH_COM) {
 			writeStringToUART(MY_UART_COM,
 					"\n MAX YEAR :D Khoa Pham Dep Trai. \n Call my team to update code!");
@@ -827,46 +780,43 @@ int main(void) {
 	Config();
 	while (1) {
 		getData();
-		writeStringToUART(MY_UART_COM, "\n Send A Data: ");
+		writeStringToUART(MY_UART_BLT, "\n Send A Data: ");
 		sendAData();
-		writeStringToUART(MY_UART_COM, "\n Send All Data: ");
+		writeStringToUART(MY_UART_BLT, "\n Send All Data: ");
 		sendAllData();
-		writeStringToUART(MY_UART_COM, "\n Test int = 0: ");
-		writeIntToUART(MY_UART_COM, 0);
-		if (TEST_WITH_COM) {
-			writeStringToUART(MY_UART_COM, "\n iYears: ");
-			writeIntToUART(MY_UART_COM, iYears);
-
-			writeStringToUART(MY_UART_COM, "\n iDays: ");
-			writeIntToUART(MY_UART_COM, iDays);
-
-			writeStringToUART(MY_UART_COM, "\n iHours: ");
-			writeIntToUART(MY_UART_COM, iHours);
-
-			writeStringToUART(MY_UART_COM, "\n iMins: ");
-			writeIntToUART(MY_UART_COM, iMins);
-
-			writeStringToUART(MY_UART_COM, "\n iSec: ");
-			writeIntToUART(MY_UART_COM, iSec);
-
-		} else {
-			writeStringToUART(MY_UART_BLT, "\n iYears: ");
-			writeIntToUART(MY_UART_BLT, iYears);
-
-			writeStringToUART(MY_UART_BLT, "\n iDays: ");
-			writeIntToUART(MY_UART_BLT, iDays);
-
-			writeStringToUART(MY_UART_BLT, "\n iHours: ");
-			writeIntToUART(MY_UART_BLT, iHours);
-
-			writeStringToUART(MY_UART_BLT, "\n iMins: ");
-			writeIntToUART(MY_UART_BLT, iMins);
-
-			writeStringToUART(MY_UART_BLT, "\n iSec: ");
-			writeIntToUART(MY_UART_BLT, iSec);
-
-		}
+//		if (TEST_WITH_COM) {
+//			writeStringToUART(MY_UART_COM, "\n iYears: ");
+//			writeIntToUART(MY_UART_COM, iYears);
+//
+//			writeStringToUART(MY_UART_COM, "\n iDays: ");
+//			writeIntToUART(MY_UART_COM, iDays);
+//
+//			writeStringToUART(MY_UART_COM, "\n iHours: ");
+//			writeIntToUART(MY_UART_COM, iHours);
+//
+//			writeStringToUART(MY_UART_COM, "\n iMins: ");
+//			writeIntToUART(MY_UART_COM, iMins);
+//
+//			writeStringToUART(MY_UART_COM, "\n iSec: ");
+//			writeIntToUART(MY_UART_COM, iSec);
+//
+//		} else {
+//			writeStringToUART(MY_UART_BLT, "\n iYears: ");
+//			writeIntToUART(MY_UART_BLT, iYears);
+//
+//			writeStringToUART(MY_UART_BLT, "\n iDays: ");
+//			writeIntToUART(MY_UART_BLT, iDays);
+//
+//			writeStringToUART(MY_UART_BLT, "\n iHours: ");
+//			writeIntToUART(MY_UART_BLT, iHours);
+//
+//			writeStringToUART(MY_UART_BLT, "\n iMins: ");
+//			writeIntToUART(MY_UART_BLT, iMins);
+//
+//			writeStringToUART(MY_UART_BLT, "\n iSec: ");
+//			writeIntToUART(MY_UART_BLT, iSec);
+//
+//		}
 		SysCtlDelay(SysCtlClockGet());
-
 	}
 }
